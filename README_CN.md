@@ -266,6 +266,11 @@ curl -X POST http://localhost:7860/v1/chat/completions \
 - `SECURE_COOKIES`：是否启用安全 Cookie（HTTPS only）
   - 设置为 `true`：仅 HTTPS 连接可登录（适用于配置了 SSL 证书的生产环境）
   - 设置为 `false` 或不设置：HTTP 和 HTTPS 都可登录（默认，新手友好）
+- `ICON_URL`：自定义控制台的 favicon 图标 URL
+  - 支持任意图片格式（ICO、PNG、SVG 等）
+  - 支持任意尺寸，常见尺寸为 16x16、32x32、48x48（ICO 或 PNG）或矢量图（SVG）
+  - 示例：`https://example.com/favicon.ico`
+  - 若不设置，则不显示 favicon
 
 ### 🧠 模型配置
 

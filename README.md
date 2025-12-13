@@ -266,6 +266,11 @@ curl -X POST http://localhost:7860/v1/chat/completions \
 - `SECURE_COOKIES`: Enable secure cookies (HTTPS only)
   - Set to `true`: Only HTTPS connections can login (for production with SSL certificates)
   - Set to `false` or leave unset: Both HTTP and HTTPS can login (default, beginner-friendly)
+- `ICON_URL`: Custom favicon URL for the web interface
+  - Supports any image format (ICO, PNG, SVG, etc.)
+  - Supports any size; common sizes are 16x16, 32x32, 48x48 (ICO/PNG) or vector (SVG)
+  - Example: `https://example.com/favicon.ico`
+  - If not set, no favicon will be displayed
 
 ### 🧠 Model Configuration
 

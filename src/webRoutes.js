@@ -64,7 +64,6 @@ class WebRoutes {
                 resave: false,
                 saveUninitialized: false,
                 cookie: {
-                    // Use explicit SECURE_COOKIES env var instead of NODE_ENV
                     // This allows HTTP access in production if HTTPS is not configured
                     // Set SECURE_COOKIES=true when using HTTPS/SSL
                     secure: process.env.SECURE_COOKIES === "true",
@@ -166,6 +165,20 @@ class WebRoutes {
     setupStatusRoutes(app) {
         const isAuthenticated = this.isAuthenticated.bind(this);
 
+        // Favicon endpoint (public, no authentication required)
+        app.get("/favicon.ico", (req, res) => {
+            const iconUrl = process.env.ICON_URL;
+
+            if (!iconUrl) {
+                // Return 204 No Content if no icon is configured
+                return res.status(204).end();
+            }
+
+            // Redirect to the configured icon URL
+            // This supports any icon format (ICO, PNG, SVG, etc.) and any size
+            res.redirect(302, iconUrl);
+        });
+
         // Health check endpoint (public, no authentication required)
         app.get("/health", (req, res) => {
             const healthStatus = {
@@ -258,6 +271,7 @@ class WebRoutes {
         // Replace all {{placeholder}} with corresponding data
         for (const [key, value] of Object.entries(data)) {
             const regex = new RegExp(`{{${key}}}`, "g");
+
             // HTML escape the value to prevent XSS (except for pre-built HTML like accountDetailsHtml)
             const escapedValue = key.endsWith("Html") ? value : this._escapeHtml(String(value));
             template = template.replace(regex, escapedValue);
@@ -339,6 +353,7 @@ class WebRoutes {
                 const name = isInvalid
                     ? "N/A (JSON format error)"
                     : accountNameMap.get(index) || "N/A (Unnamed)";
+
                 // Escape account name to prevent XSS
                 const escapedName = this._escapeHtml(String(name));
                 return `<span class="label" style="padding-left: 20px;">Account ${index}</span>: ${escapedName}`;
