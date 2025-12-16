@@ -3,7 +3,7 @@ FROM node:24-slim
 
 WORKDIR /app
 
-# Install system dependencies required for Playwright/Camoufox browser
+# Install system dependencies required for Playwright/Camoufox browser and VNC
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxss1 \
     libxtst6 \
     xvfb \
+    x11vnc \
+    websockify \
+    novnc \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

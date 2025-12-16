@@ -13,6 +13,13 @@
 
     const app = createApp({
         computed: {
+            currentAccountName() {
+                if (this.currentAuthIndex === null || this.currentAuthIndex < 0) {
+                    return this.t('noActiveAccount');
+                }
+                const account = this.accountDetails.find(acc => acc.index === this.currentAuthIndex);
+                return account ? account.name : this.t('noActiveAccount');
+            },
             forceThinkingText() {
                 return this.forceThinkingEnabled ? 'true' : 'false';
             },
@@ -34,13 +41,14 @@
         data() {
             return {
                 accountDetails: [],
-                currentAuthIndex: -1,
+                currentAuthIndex: 0,
                 forceThinkingEnabled: false,
                 forceUrlContextEnabled: false,
                 forceWebSearchEnabled: false,
                 isSwitchingAccount: false,
                 isUpdating: false,
                 lang: I18n.getLang(),
+                selectedAccount: null,
                 streamingModeReal: false,
             };
         },
@@ -160,10 +168,7 @@
                 });
             },
             switchSpecificAccount() {
-                const targetIndex = parseInt(
-                    document.getElementById('account-index-select').value,
-                    10
-                );
+                const targetIndex = this.selectedAccount;
 
                 if (this.currentAuthIndex === targetIndex) {
                     ElementPlus.ElMessage.warning(this.t('alreadyCurrentAccount'));
@@ -232,12 +237,42 @@
                 this.forceUrlContextEnabled = data.status.forceUrlContext.includes('Enabled');
                 this.currentAuthIndex = data.status.currentAuthIndex;
                 this.accountDetails = data.status.accountDetails || [];
+
+                const isSelectedAccountValid = this.accountDetails.some(acc => acc.index === this.selectedAccount);
+
+                if (!isSelectedAccountValid) {
+                    const isActiveAccountValid = this.accountDetails.some(acc => acc.index === this.currentAuthIndex);
+                    this.selectedAccount = isActiveAccountValid ? this.currentAuthIndex : null;
+                }
+
                 this.$nextTick(() => {
                     this.isUpdating = false;
                 });
             },
         },
         mounted() {
+            // Check for new auth info from account_binding page
+            const newAuthInfoRaw = sessionStorage.getItem('newAuthInfo');
+            if (newAuthInfoRaw) {
+                try {
+                    const newAuthInfo = JSON.parse(newAuthInfoRaw);
+                    this.isUpdating = true;
+                    // Don't set currentAuthIndex, keep it as it was
+                    this.accountDetails = newAuthInfo.availableIndices.map(index => ({
+                        index,
+                        name: newAuthInfo.accountNameMap[index] || 'N/A',
+                    }));
+                    this.$nextTick(() => {
+                        this.isUpdating = false;
+                        updateContent(); // Immediately update the content to reflect the new state
+                    });
+                } catch (e) {
+                    console.error('Failed to parse new auth info:', e);
+                } finally {
+                    sessionStorage.removeItem('newAuthInfo');
+                }
+            }
+
             const initialMode = '{{streamingMode}}';
             const initialThinking = '{{forceThinking}}';
             const initialWebSearch = '{{forceWebSearch}}';
@@ -249,7 +284,15 @@
             this.forceThinkingEnabled = initialThinking === 'true' || initialThinking === true;
             this.forceWebSearchEnabled = initialWebSearch === 'true' || initialWebSearch === true;
             this.forceUrlContextEnabled = initialUrlContext === 'true' || initialUrlContext === true;
-            this.currentAuthIndex = parseInt(initialAuthIndex, 10);
+
+            const parsedInitialAuthIndex = parseInt(initialAuthIndex, 10);
+            if (!isNaN(parsedInitialAuthIndex) && parsedInitialAuthIndex > 0) {
+                this.currentAuthIndex = parsedInitialAuthIndex;
+                this.selectedAccount = parsedInitialAuthIndex;
+            } else {
+                this.currentAuthIndex = 0;
+                this.selectedAccount = null;
+            }
 
             this.$nextTick(() => {
                 this.isUpdating = false;

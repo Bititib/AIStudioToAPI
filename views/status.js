@@ -24,7 +24,15 @@
             )
             .join('\n');
 
-        statusPre.innerHTML
+
+            let currentAccountHtml = '';
+            if (data.status.currentAuthIndex !== null && data.status.currentAuthIndex > 0) {
+                currentAccountHtml = '<span class="label">' + t('currentAccount') + '</span>: #' + data.status.currentAuthIndex + ' (' + data.status.currentAccountName + ')\n';
+            } else {
+                currentAccountHtml = '<span class="label">' + t('currentAccount') + '</span>: <span class="status-error">' + t('noActiveAccount') + '</span>\n';
+            }
+
+            statusPre.innerHTML
             = `<span class="label">${t('serviceStatus')}</span>: <span class="status-ok">${t('running')}</span>\n`
             + `<span class="label">${t('browserConnection')}</span>: <span class="${data.status.browserConnected ? 'status-ok' : 'status-error'}">${data.status.browserConnected}</span>\n`
             + `--- ${t('serviceConfig')} ---\n`
@@ -35,7 +43,7 @@
             + `<span class="label">${t('immediateSwitchCodes')}</span>: ${data.status.immediateSwitchStatusCodes}\n`
             + `<span class="label">${t('apiKey')}</span>: ${data.status.apiKeySource}\n`
             + `--- ${t('accountStatus')} ---\n`
-            + `<span class="label">${t('currentAccount')}</span>: #${data.status.currentAuthIndex} (${data.status.currentAccountName})\n`
+            + currentAccountHtml
             + `<span class="label">${t('usageCount')}</span>: ${data.status.usageCount}\n`
             + `<span class="label">${t('consecutiveFailures')}</span>: ${data.status.failureCount}\n`
             + `<span class="label">${t('totalScanned')}</span>: ${data.status.initialIndices}\n`

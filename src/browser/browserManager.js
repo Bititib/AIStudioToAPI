@@ -8,7 +8,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { firefox } = require("playwright");
+const { firefox, devices } = require("playwright");
 const os = require("os");
 
 /**
@@ -74,9 +74,55 @@ class BrowserManager {
         }
     }
 
+    async launchBrowserForVNC(extraArgs = {}) {
+        this.logger.info("🚀 [VNC] Launching a new, separate, headful browser instance for VNC session...");
+        if (!fs.existsSync(this.browserExecutablePath)) {
+            throw new Error(
+                `Browser executable not found at path: ${this.browserExecutablePath}`
+            );
+        }
+
+        // This browser instance is temporary and specific to the VNC session.
+        // It does NOT affect the main `this.browser` used for the API proxy.
+        const vncBrowser = await firefox.launch({
+            args: this.launchArgs,
+            // Must be false for VNC to be visible.
+            env: {
+                ...process.env,
+                ...extraArgs.env,
+            },
+
+            executablePath: this.browserExecutablePath,
+            headless: false,
+        });
+
+        vncBrowser.on("disconnected", () => {
+            this.logger.warn("ℹ️ [VNC] The temporary VNC browser instance has been disconnected.");
+        });
+
+        this.logger.info("✅ [VNC] Temporary VNC browser instance launched successfully.");
+
+        let contextOptions = {};
+        if (extraArgs.isMobile) {
+            this.logger.info("[VNC] Mobile device detected. Applying mobile user-agent, viewport, and touch events.");
+            const mobileDevice = devices["Pixel 5"];
+            contextOptions = {
+                hasTouch: mobileDevice.hasTouch,
+                userAgent: mobileDevice.userAgent,
+                viewport: { height: 915, width: 412 }, // Set a specific portrait viewport
+            };
+        }
+
+        const context = await vncBrowser.newContext(contextOptions);
+        this.logger.info("✅ [VNC] VNC browser context successfully created.");
+
+        // Return both the browser and context so the caller can manage their lifecycle.
+        return { browser: vncBrowser, context };
+    }
+
     async launchOrSwitchContext(authIndex) {
         if (!this.browser) {
-            this.logger.info("🚀 [Browser] Browser instance not running, performing first-time launch...");
+            this.logger.info("🚀 [Browser] Main browser instance not running, performing first-time launch...");
             if (!fs.existsSync(this.browserExecutablePath)) {
                 throw new Error(
                     `Browser executable not found at path: ${this.browserExecutablePath}`
@@ -85,23 +131,23 @@ class BrowserManager {
             this.browser = await firefox.launch({
                 args: this.launchArgs,
                 executablePath: this.browserExecutablePath,
-                headless: true,
+                headless: true, // Main browser is always headless
             });
             this.browser.on("disconnected", () => {
-                this.logger.error("❌ [Browser] Browser unexpectedly disconnected!");
+                this.logger.error("❌ [Browser] Main browser unexpectedly disconnected!");
                 this.browser = null;
                 this.context = null;
                 this.page = null;
             });
-            this.logger.info("✅ [Browser] Browser instance successfully launched.");
+            this.logger.info("✅ [Browser] Main browser instance successfully launched.");
         }
 
         if (this.context) {
-            this.logger.info("[Browser] Closing old browser context...");
+            this.logger.info("[Browser] Closing old API browser context...");
             await this.context.close();
             this.context = null;
             this.page = null;
-            this.logger.info("[Browser] Old context closed.");
+            this.logger.info("[Browser] Old API context closed.");
         }
 
         const sourceDescription
@@ -110,7 +156,7 @@ class BrowserManager {
                 : `File auth-${authIndex}.json`;
         this.logger.info("==================================================");
         this.logger.info(
-            `🔄 [Browser] Creating new browser context for account #${authIndex}`
+            `🔄 [Browser] Creating new API browser context for account #${authIndex}`
         );
         this.logger.info(`   • Auth source: ${sourceDescription}`);
         this.logger.info("==================================================");
@@ -366,12 +412,12 @@ class BrowserManager {
 
     async closeBrowser() {
         if (this.browser) {
-            this.logger.info("[Browser] Closing entire browser instance...");
+            this.logger.info("[Browser] Closing main browser instance...");
             await this.browser.close();
             this.browser = null;
             this.context = null;
             this.page = null;
-            this.logger.info("[Browser] Browser instance closed.");
+            this.logger.info("[Browser] Main browser instance closed.");
         }
     }
 

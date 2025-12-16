@@ -9,11 +9,16 @@
     <!-- Import Vue.js and Element Plus -->
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
     <link rel="stylesheet" href="/styles/status.css">
+    <link rel="stylesheet" href="/styles/nav.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/element-plus"></script>
 </head>
 
 <body>
+    <nav class="nav-bar">
+        <a href="/" class="nav-link active">Status</a>
+        <a href="/account_binding" class="nav-link">Account Binding</a>
+    </nav>
     <div id="app">
         <!-- Mobile Floating Action Buttons -->
         <el-affix :offset="20" position="bottom" class="mobile-only"
@@ -91,8 +96,11 @@
             <div id="actions-section" style="margin-top: 2em;">
                 <h2 data-i18n="actionsPanel">Actions Panel</h2>
                 <div class="action-group">
-                    <select id="account-index-select" :disabled="isSwitchingAccount">{{accountOptionsHtml}}</select>
-                    <button id="switch-account-btn" @click="switchSpecificAccount" :disabled="isSwitchingAccount"
+                    <el-select v-model="selectedAccount" :placeholder="t('noActiveAccount')" :disabled="isSwitchingAccount" style="width: 240px;">
+                        <el-option v-for="item in accountDetails" :key="item.index" :label="'Account #' + item.index + ' (' + item.name + ')'" :value="item.index">
+                        </el-option>
+                    </el-select>
+                    <button id="switch-account-btn" @click="switchSpecificAccount" :disabled="isSwitchingAccount || selectedAccount === null"
                         :title="t('btnSwitchAccount', 'Switch Account')">
                         <svg t="1765911521856" class="icon" viewBox="0 0 1024 1024" version="1.1"
                             xmlns="http://www.w3.org/2000/svg" p-id="4750" id="mx_n_1765911521857"

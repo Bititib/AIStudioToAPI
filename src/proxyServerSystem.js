@@ -10,6 +10,8 @@ const { EventEmitter } = require("events");
 const express = require("express");
 const WebSocket = require("ws");
 const http = require("http");
+const net = require("net");
+const { URL } = require("url");
 
 const LoggingService = require("./utils/loggingService");
 const AuthSource = require("./auth/authSource");
@@ -61,7 +63,12 @@ class ProxyServerSystem extends EventEmitter {
         const allAvailableIndices = this.authSource.availableIndices;
 
         if (allAvailableIndices.length === 0) {
-            throw new Error("No available authentication source, unable to start.");
+            this.logger.warn("[System] No available authentication source. Starting in account binding mode.");
+            await this._startHttpServer();
+            await this._startWebSocketServer();
+            this.logger.info(`[System] Proxy server system startup complete in account binding mode.`);
+            this.emit("started");
+            return; // Exit early
         }
 
         let startupOrder = [...allAvailableIndices];
@@ -103,7 +110,8 @@ class ProxyServerSystem extends EventEmitter {
         }
 
         if (!isStarted) {
-            throw new Error("All authentication sources failed, server cannot start.");
+            this.logger.warn("[System] All authentication sources failed to initialize. Starting in account binding mode without an active account.");
+            // Don't throw an error, just proceed to start servers
         }
 
         await this._startHttpServer();
@@ -117,7 +125,8 @@ class ProxyServerSystem extends EventEmitter {
             // Whitelist paths that don't require API key authentication
             // Note: /, /api/status use session authentication instead
             const whitelistPaths = ["/", "/favicon.ico", "/login", "/health", "/api/status", "/api/accounts/current",
-                "/api/settings/streaming-mode", "/api/settings/force-thinking", "/api/settings/force-web-search", "/api/settings/force-url-context"];
+                "/api/settings/streaming-mode", "/api/settings/force-thinking", "/api/settings/force-web-search",
+                "/api/settings/force-url-context", "/account_binding"];
 
             // Whitelist path patterns (regex)
             const whitelistPatterns = [
@@ -134,6 +143,7 @@ class ProxyServerSystem extends EventEmitter {
                 "/vueApp.js",
                 "/utils/",
                 "/locales/",
+                "/account_binding.js",
             ];
             const isStaticFile = staticPrefixes.some(prefix => req.path.startsWith(prefix) || req.path === prefix);
             const isWhitelistedPattern = whitelistPatterns.some(pattern => pattern.test(req.path));
@@ -192,6 +202,57 @@ class ProxyServerSystem extends EventEmitter {
     async _startHttpServer() {
         const app = this._createExpressApp();
         this.httpServer = http.createServer(app);
+
+        this.httpServer.on("upgrade", (req, socket) => {
+            const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+
+            if (pathname === "/vnc") {
+                this.logger.info("[VNC Proxy] Detected VNC WebSocket upgrade request. Proxying...");
+                const target = net.createConnection({ host: "localhost", port: 6080 });
+
+                target.on("connect", () => {
+                    this.logger.info("[VNC Proxy] Successfully connected to internal websockify (port 6080).");
+
+                    // Forward the WebSocket handshake headers to the backend
+                    const headers = [
+                        `GET ${req.url} HTTP/1.1`,
+                        "Host: localhost:6080",
+                        "Upgrade: websocket",
+                        "Connection: Upgrade",
+                        `Sec-WebSocket-Key: ${req.headers["sec-websocket-key"]}`,
+                        `Sec-WebSocket-Version: ${req.headers["sec-websocket-version"]}`,
+                    ];
+
+                    if (req.headers["sec-websocket-protocol"]) {
+                        headers.push(`Sec-WebSocket-Protocol: ${req.headers["sec-websocket-protocol"]}`);
+                    }
+
+                    if (req.headers["sec-websocket-extensions"]) {
+                        headers.push(`Sec-WebSocket-Extensions: ${req.headers["sec-websocket-extensions"]}`);
+                    }
+
+                    // Write the handshake to the backend
+                    target.write(headers.join("\r\n") + "\r\n\r\n");
+
+                    // Pipe the sockets together. The backend will respond with 101, which goes to the client.
+                    target.pipe(socket).pipe(target);
+                });
+
+                target.on("error", err => {
+                    this.logger.error(`[VNC Proxy] Error connecting to internal websockify: ${err.message}`);
+                    socket.destroy();
+                });
+
+                socket.on("error", err => {
+                    this.logger.error(`[VNC Proxy] Client socket error: ${err.message}`);
+                    target.destroy();
+                });
+            } else {
+                // If it's not for VNC, destroy the socket to prevent hanging connections
+                this.logger.warn(`[System] Received an upgrade request for an unknown path: ${pathname}. Connection terminated.`);
+                socket.destroy();
+            }
+        });
 
         this.httpServer.keepAliveTimeout = 120000;
         this.httpServer.headersTimeout = 125000;

@@ -20,6 +20,7 @@ class AuthSource {
         this.availableIndices = [];
         this.initialIndices = [];
         this.accountNameMap = new Map();
+        this.lastScannedIndices = "[]"; // Cache to track changes
 
         if (process.env.AUTH_JSON_0 || process.env.AUTH_JSON_1) {
             this.authMode = "env";
@@ -32,14 +33,26 @@ class AuthSource {
             );
         }
 
-        this._discoverAvailableIndices();
-        this._preValidateAndFilter();
+        this.reloadAuthSources(true); // Initial load
 
         if (this.availableIndices.length === 0) {
-            this.logger.error(
-                `[Auth] Fatal error: No valid authentication sources found in '${this.authMode}' mode.`
+            this.logger.warn(
+                `[Auth] No valid authentication sources found in '${this.authMode}' mode. The server will start in account binding mode.`
             );
-            throw new Error("No valid authentication sources found.");
+        }
+    }
+
+    reloadAuthSources(isInitialLoad = false) {
+        const oldIndices = this.lastScannedIndices;
+        this._discoverAvailableIndices();
+        const newIndices = JSON.stringify(this.initialIndices);
+
+        // Only log verbosely if it's the first load or if the file list has actually changed.
+        if (isInitialLoad || oldIndices !== newIndices) {
+            this.logger.info(`[Auth] Auth file scan detected changes. Reloading and re-validating...`);
+            this._preValidateAndFilter();
+            this.logger.info(`[Auth] Reload complete. ${this.availableIndices.length} valid sources available: [${this.availableIndices.join(", ")}]`);
+            this.lastScannedIndices = newIndices;
         }
     }
 
@@ -85,8 +98,8 @@ class AuthSource {
         } else {
             const configDir = path.join(process.cwd(), "configs", "auth");
             if (!fs.existsSync(configDir)) {
-                this.logger.warn('[Auth] "configs/auth" directory does not exist.');
                 this.availableIndices = [];
+                this.initialIndices = [];
                 return;
             }
             try {
@@ -98,27 +111,26 @@ class AuthSource {
             } catch (error) {
                 this.logger.error(`[Auth] Failed to scan "configs/auth/" directory: ${error.message}`);
                 this.availableIndices = [];
+                this.initialIndices = [];
                 return;
             }
         }
 
         this.initialIndices = [...new Set(indices)].sort((a, b) => a - b);
-        this.availableIndices = [...this.initialIndices];
-
-        this.logger.info(
-            `[Auth] In '${this.authMode}' mode, initially discovered ${this.initialIndices.length
-            } authentication sources: [${this.initialIndices.join(", ")}]`
-        );
     }
 
     _preValidateAndFilter() {
-        if (this.availableIndices.length === 0) return;
+        if (this.initialIndices.length === 0) {
+            this.availableIndices = [];
+            this.accountNameMap.clear();
+            return;
+        }
 
-        this.logger.info("[Auth] Starting pre-validation of JSON format for all authentication sources...");
         const validIndices = [];
         const invalidSourceDescriptions = [];
+        this.accountNameMap.clear(); // Clear old names before re-validating
 
-        for (const index of this.availableIndices) {
+        for (const index of this.initialIndices) { // Iterate over initial to check all, not just previously available
             const authContent = this._getAuthContent(index);
             if (authContent) {
                 try {
@@ -145,7 +157,7 @@ class AuthSource {
             );
         }
 
-        this.availableIndices = validIndices;
+        this.availableIndices = validIndices.sort((a, b) => a - b);
     }
 
     _getAuthContent(index) {

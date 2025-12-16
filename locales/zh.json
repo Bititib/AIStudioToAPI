@@ -27,6 +27,7 @@
     "logoutError": "登出时发生错误",
     "logoutFail": "登出失败",
     "logoutSuccess": "登出成功",
+    "noActiveAccount": "无活动账户，请选择一个。",
     "ok": "确定",
     "operationInProgress": "操作进行中...",
     "realtimeLogs": "实时日志",

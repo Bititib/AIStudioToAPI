@@ -27,6 +27,7 @@
     "logoutError": "Error during logout",
     "logoutFail": "Logout failed",
     "logoutSuccess": "Logout successful",
+    "noActiveAccount": "No active account. Please select one.",
     "ok": "OK",
     "operationInProgress": "Operation in progress...",
     "realtimeLogs": "Real-time Logs",
