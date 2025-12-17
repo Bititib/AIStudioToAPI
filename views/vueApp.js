@@ -361,11 +361,17 @@
                 if (this.isInitializing) {
                     this.isInitializing = false;
                 }
+                const isEnabled = val => {
+                    if (val === true) return true;
+                    if (val === 1) return true;
+                    if (String(val).toLowerCase() === 'true') return true;
+                    return false;
+                };
                 this.isUpdating = true;
                 this.streamingModeReal = data.status.streamingMode === 'real';
-                this.forceThinkingEnabled = data.status.forceThinking === true;
-                this.forceWebSearchEnabled = data.status.forceWebSearch === true;
-                this.forceUrlContextEnabled = data.status.forceUrlContext === true;
+                this.forceThinkingEnabled = isEnabled(data.status.forceThinking);
+                this.forceWebSearchEnabled = isEnabled(data.status.forceWebSearch);
+                this.forceUrlContextEnabled = isEnabled(data.status.forceUrlContext);
                 this.currentAuthIndex = data.status.currentAuthIndex;
                 this.accountDetails = data.status.accountDetails || [];
                 this.browserConnected = data.status.browserConnected;
@@ -390,8 +396,20 @@
 
                 this.$nextTick(() => {
                     this.isUpdating = false;
+
+                    //TODO: Temp resolution to solve "force*" display
                     if (window.I18n) {
                         window.I18n.applyI18n();
+                        const realLang = window.I18n.getLang();
+
+                        if (this.lang === realLang) {
+                            this.lang = realLang + '_force_refresh';
+                            this.$nextTick(() => {
+                                this.lang = realLang;
+                            });
+                        } else {
+                            this.lang = realLang;
+                        }
                     }
                 });
             },
