@@ -110,5 +110,6 @@
     "true": "Enabled",
     "unnamedAccount": "N/A (Unnamed)",
     "usageCount": "Usage Count",
+    "warningDeleteCurrentAccount": "You are about to delete the currently active account. The browser connection will be closed and you will need to switch to another account. Continue?",
     "warningTitle": "Warning"
 }

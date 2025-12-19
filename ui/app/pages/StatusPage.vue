@@ -354,7 +354,7 @@ const addUser = () => {
     router.push("/auth");
 };
 
-const deleteUser = () => {
+const deleteUser = async () => {
     const targetIndex = state.selectedAccount;
     if (targetIndex === null || targetIndex === undefined) {
         ElMessage.warning(t("noAccountSelected"));
@@ -364,32 +364,61 @@ const deleteUser = () => {
     const targetAccount = state.accountDetails.find(acc => acc.index === targetIndex);
     const accountSuffix = targetAccount ? ` (${targetAccount.name})` : "";
 
-    ElMessageBox.confirm(`${t("confirmDelete")} #${targetIndex}${accountSuffix}?`, {
+    // Helper function to perform the actual deletion
+    const performDelete = async (forceDelete = false) => {
+        state.isSwitchingAccount = true;
+        let shouldUpdate = true; // Flag to control whether to update content
+        try {
+            const url = forceDelete ? `/api/accounts/${targetIndex}?force=true` : `/api/accounts/${targetIndex}`;
+            const res = await fetch(url, {
+                method: "DELETE",
+            });
+            const data = await res.json();
+
+            // If 409 status (requires confirmation for current account), show warning dialog
+            if (res.status === 409 && data.requiresConfirmation) {
+                shouldUpdate = false; // Don't update content, just show confirmation dialog
+                state.isSwitchingAccount = false;
+                ElMessageBox.confirm(t("warningDeleteCurrentAccount"), t("warningTitle"), {
+                    cancelButtonText: t("cancel"),
+                    confirmButtonText: t("ok"),
+                    lockScroll: false,
+                    type: "error",
+                })
+                    .then(() => performDelete(true))
+                    .catch(e => {
+                        if (e !== "cancel") {
+                            console.error(e);
+                        }
+                    });
+                return; // Early return to prevent further execution
+            }
+
+            // Show success or error messages for completed operations
+            const message = t(data.message, data);
+            if (res.ok) {
+                ElMessage.success(message);
+            } else {
+                ElMessage.error(message);
+            }
+        } catch (err) {
+            ElMessage.error(t("deleteFailed", { message: err.message || err }));
+        } finally {
+            if (shouldUpdate) {
+                state.isSwitchingAccount = false;
+                updateContent();
+            }
+        }
+    };
+
+    // First confirmation dialog
+    ElMessageBox.confirm(`${t("confirmDelete")} #${targetIndex}${accountSuffix}?`, t("warningTitle"), {
         cancelButtonText: t("cancel"),
         confirmButtonText: t("ok"),
         lockScroll: false,
         type: "warning",
     })
-        .then(async () => {
-            state.isSwitchingAccount = true;
-            try {
-                const res = await fetch(`/api/accounts/${targetIndex}`, {
-                    method: "DELETE",
-                });
-                const data = await res.json();
-                const message = t(data.message, data);
-                if (res.ok) {
-                    ElMessage.success(message);
-                } else {
-                    ElMessage.error(message);
-                }
-            } catch (err) {
-                ElMessage.error(t("deleteFailed", { message: err.message || err }));
-            } finally {
-                state.isSwitchingAccount = false;
-                updateContent();
-            }
-        })
+        .then(() => performDelete(false))
         .catch(e => {
             if (e !== "cancel") {
                 console.error(e);

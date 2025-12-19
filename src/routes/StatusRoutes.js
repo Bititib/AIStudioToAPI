@@ -90,7 +90,7 @@ class StatusRoutes {
             if (browserManager.browser) {
                 const currentAuthIndex = requestHandler.currentAuthIndex;
 
-                if (currentAuthIndex !== null && !authSource.availableIndices.includes(currentAuthIndex)) {
+                if (currentAuthIndex === null || !authSource.availableIndices.includes(currentAuthIndex)) {
                     this.logger.warn(
                         `[System] Current auth index #${currentAuthIndex} is no longer valid after reload (e.g., file deleted).`
                     );
@@ -141,13 +141,10 @@ class StatusRoutes {
             const rawIndex = req.params.index;
             const targetIndex = Number(rawIndex);
             const currentAuthIndex = this.serverSystem.requestHandler.currentAuthIndex;
+            const forceDelete = req.query.force === "true"; // Check if force delete is confirmed
 
             if (!Number.isInteger(targetIndex)) {
                 return res.status(400).json({ message: "errorInvalidIndex" });
-            }
-
-            if (targetIndex === currentAuthIndex) {
-                return res.status(400).json({ message: "errorDeleteCurrentAccount" });
             }
 
             const { authSource } = this.serverSystem;
@@ -156,12 +153,38 @@ class StatusRoutes {
                 return res.status(404).json({ index: targetIndex, message: "errorAccountNotFound" });
             }
 
+            // If deleting current account without confirmation, return warning
+            if (targetIndex === currentAuthIndex && !forceDelete) {
+                return res.status(409).json({
+                    index: targetIndex,
+                    message: "warningDeleteCurrentAccount",
+                    requiresConfirmation: true,
+                });
+            }
+
             try {
                 authSource.removeAuth(targetIndex);
+
+                // If deleting current account, close browser connection
+                if (targetIndex === currentAuthIndex) {
+                    this.logger.warn(
+                        `[WebUI] Current active account #${targetIndex} was deleted. Closing browser connection...`
+                    );
+                    this.serverSystem.browserManager.closeBrowser().catch(err => {
+                        this.logger.error(`[WebUI] Error closing browser after account deletion: ${err.message}`);
+                    });
+                    // Reset current account index through browserManager
+                    this.serverSystem.browserManager.currentAuthIndex = 0;
+                }
+
                 this.logger.warn(
-                    `[WebUI] Account #${targetIndex} deleted via web interface. Current account: #${currentAuthIndex}`
+                    `[WebUI] Account #${targetIndex} deleted via web interface. Previous current account: #${currentAuthIndex}`
                 );
-                res.status(200).json({ index: targetIndex, message: "accountDeleteSuccess" });
+                res.status(200).json({
+                    index: targetIndex,
+                    message: "accountDeleteSuccess",
+                    wasCurrentAccount: targetIndex === currentAuthIndex,
+                });
             } catch (error) {
                 this.logger.error(`[WebUI] Failed to delete account #${targetIndex}: ${error.message}`);
                 return res.status(500).json({ error: error.message, message: "accountDeleteFailed" });
