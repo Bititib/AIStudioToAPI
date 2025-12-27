@@ -140,6 +140,12 @@ If you need to access via a domain name or want unified management at the revers
 
 > 📖 For detailed Nginx configuration instructions, see: [Nginx Reverse Proxy Configuration](docs/en/nginx-setup.md)
 
+### 🐾 Cloud Deployment (Claw Cloud)
+
+Deploy directly on Claw Cloud Run, a fully managed container platform.
+
+> 📖 For detailed deployment instructions, see: [Deploy on Claw Cloud Run](docs/en/claw-cloud-run.md)
+
 ## 📡 API Usage
 
 ### 🤖 OpenAI-Compatible API
