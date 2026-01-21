@@ -10,6 +10,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 import LoginPage from '../pages/LoginPage.vue';
 import StatusPage from '../pages/StatusPage.vue';
 import AuthPage from '../pages/AuthPage.vue';
+import ChatPage from '../pages/ChatPage.vue';
+import ImagePage from '../pages/ImagePage.vue';
+import TTSPage from '../pages/TTSPage.vue';
 import NotFound from '../pages/NotFound.vue';
 
 const routes = [
@@ -27,6 +30,21 @@ const routes = [
         component: AuthPage,
         name: 'auth',
         path: '/auth',
+    },
+    {
+        component: ChatPage,
+        name: 'chat',
+        path: '/chat',
+    },
+    {
+        component: ImagePage,
+        name: 'image',
+        path: '/image',
+    },
+    {
+        component: TTSPage,
+        name: 'tts',
+        path: '/tts',
     },
     {
         component: NotFound,

@@ -316,6 +316,48 @@
                 </div>
                 <pre id="log-container">{{ state.logs }}</pre>
             </div>
+            <div id="ai-tools-section" style="margin-top: 2em">
+                <h2>{{ t("aiToolsPanel") }}</h2>
+                <div class="ai-tools-grid">
+                    <router-link to="/chat" class="ai-tool-card chat-card">
+                        <div class="ai-tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="ai-tool-info">
+                            <h3>{{ t("navChat") }}</h3>
+                            <p>{{ t("aiToolChatDesc") }}</p>
+                        </div>
+                    </router-link>
+                    <router-link to="/image" class="ai-tool-card image-card">
+                        <div class="ai-tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                                <circle cx="9" cy="9" r="2"/>
+                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                            </svg>
+                        </div>
+                        <div class="ai-tool-info">
+                            <h3>{{ t("navImage") }}</h3>
+                            <p>{{ t("aiToolImageDesc") }}</p>
+                        </div>
+                    </router-link>
+                    <router-link to="/tts" class="ai-tool-card tts-card">
+                        <div class="ai-tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" x2="12" y1="19" y2="22"/>
+                            </svg>
+                        </div>
+                        <div class="ai-tool-info">
+                            <h3>{{ t("navTTS") }}</h3>
+                            <p>{{ t("aiToolTTSDesc") }}</p>
+                        </div>
+                    </router-link>
+                </div>
+            </div>
             <div class="version-footer">
                 <a
                     href="https://github.com/iBUHub/AIStudioToAPI"
@@ -1370,6 +1412,76 @@ pre {
 
         50% {
             opacity: 0.7;
+        }
+    }
+
+    // AI Tools Section
+    .ai-tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+    }
+
+    .ai-tool-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px;
+        border-radius: @border-radius-lg;
+        text-decoration: none;
+        color: white;
+        transition: all @transition-fast;
+        box-shadow: @shadow-medium;
+
+        &:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        &.chat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        &.image-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        &.tts-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .ai-tool-icon {
+            width: 56px;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: @border-radius-circle;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .ai-tool-info {
+            flex: 1;
+
+            h3 {
+                margin: 0 0 4px;
+                font-size: 1.1em;
+                font-weight: 600;
+            }
+
+            p {
+                margin: 0;
+                font-size: 0.85em;
+                opacity: 0.9;
+            }
+        }
+    }
+
+    @media (max-width: 600px) {
+        .ai-tools-grid {
+            grid-template-columns: 1fr;
         }
     }
 }

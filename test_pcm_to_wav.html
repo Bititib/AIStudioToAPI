@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCM to WAV 转换测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .audio-player {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3e0;
+            border-radius: 5px;
+        }
+        .stats div {
+            margin: 5px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 PCM to WAV 转换测试</h1>
+        
+        <div class="info">
+            <strong>说明:</strong> 此页面用于测试将 Gemini TTS 返回的 L16 PCM 音频数据转换为 WAV 格式
+        </div>
+
+        <button onclick="testConversion()">🧪 测试转换功能</button>
+        <button onclick="analyzeAudio()">📊 分析音频数据</button>
+        
+        <div id="result"></div>
+        
+        <div class="audio-player" id="audioContainer" style="display:none;">
+            <h3>转换后的音频:</h3>
+            <audio id="audioPlayer" controls></audio>
+        </div>
+        
+        <div class="stats" id="stats" style="display:none;">
+            <h3>音频统计信息:</h3>
+            <div id="statsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // PCM转WAV函数
+        function pcmToWav(base64PcmData, sampleRate = 24000) {
+            try {
+                // 解码Base64
+                const binaryString = atob(base64PcmData);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                // PCM参数
+                const numChannels = 1; // 单声道
+                const bitsPerSample = 16; // 16位
+                const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+                const blockAlign = numChannels * bitsPerSample / 8;
+                const dataSize = bytes.length;
+                
+                // 创建WAV文件头 (44字节)
+                const wavHeader = new ArrayBuffer(44);
+                const view = new DataView(wavHeader);
+                
+                // RIFF chunk descriptor
+                writeString(view, 0, 'RIFF');
+                view.setUint32(4, 36 + dataSize, true);
+                writeString(view, 8, 'WAVE');
+                
+                // fmt sub-chunk
+                writeString(view, 12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, byteRate, true);
+                view.setUint16(32, blockAlign, true);
+                view.setUint16(34, bitsPerSample, true);
+                
+                // data sub-chunk
+                writeString(view, 36, 'data');
+                view.setUint32(40, dataSize, true);
+                
+                // 合并头部和数据
+                const wavData = new Uint8Array(44 + dataSize);
+                wavData.set(new Uint8Array(wavHeader), 0);
+                wavData.set(bytes, 44);
+                
+                return new Blob([wavData], { type: 'audio/wav' });
+            } catch (error) {
+                console.error('PCM to WAV conversion error:', error);
+                throw error;
+            }
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        function analyzeAudioData(base64Data) {
+            const binaryString = atob(base64Data.substring(0, 1000));
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            // 转换为16位PCM样本
+            const samples = new Int16Array(bytes.buffer);
+            
+            // 计算统计信息
+            let min = 32767, max = -32768, sum = 0, nonZero = 0;
+            for (let i = 0; i < Math.min(samples.length, 1000); i++) {
+                const sample = samples[i];
+                min = Math.min(min, sample);
+                max = Math.max(max, sample);
+                sum += Math.abs(sample);
+                if (sample !== 0) nonZero++;
+            }
+            
+            return {
+                totalBytes: atob(base64Data).length,
+                sampleCount: Math.floor(atob(base64Data).length / 2),
+                minValue: min,
+                maxValue: max,
+                avgAmplitude: Math.floor(sum / samples.length),
+                nonZeroPercent: ((nonZero / samples.length) * 100).toFixed(2),
+                firstSamples: Array.from(samples.slice(0, 20))
+            };
+        }
+
+        async function testConversion() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info">正在测试转换...</div>';
+            
+            try {
+                // 模拟从API获取PCM数据(这里使用一个示例,实际应该从你的TTS响应中获取)
+                const samplePcmBase64 = "AAAAAD8APwA/AD8APwA/AD8APwA/AD8APwA/AD8APwA/AAAAAAAAAD8AAAA/AD8A";
+                
+                // 转换为WAV
+                const wavBlob = pcmToWav(samplePcmBase64, 24000);
+                
+                // 创建音频URL
+                const audioUrl = URL.createObjectURL(wavBlob);
+                
+                // 显示音频播放器
+                const audioPlayer = document.getElementById('audioPlayer');
+                audioPlayer.src = audioUrl;
+                document.getElementById('audioContainer').style.display = 'block';
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ 转换成功!<br>
+                        WAV文件大小: ${(wavBlob.size / 1024).toFixed(2)} KB<br>
+                        采样率: 24000 Hz<br>
+                        格式: 16-bit PCM, 单声道
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 转换失败: ${error.message}</div>`;
+                console.error(error);
+            }
+        }
+
+        async function analyzeAudio() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info">正在分析音频数据...</div>';
+            
+            try {
+                // 使用你提供的实际数据片段
+                const sampleData = "AAAAAD8APwA/AD8APwA/AD8APwA/AD8APwA/AD8APwA/AAAAAAAAAD8AAAA/AD8A";
+                
+                const stats = analyzeAudioData(sampleData);
+                
+                document.getElementById('stats').style.display = 'block';
+                document.getElementById('statsContent').innerHTML = `
+                    <div><strong>总字节数:</strong> ${stats.totalBytes.toLocaleString()}</div>
+                    <div><strong>样本数:</strong> ${stats.sampleCount.toLocaleString()}</div>
+                    <div><strong>振幅范围:</strong> ${stats.minValue} ~ ${stats.maxValue}</div>
+                    <div><strong>平均振幅:</strong> ${stats.avgAmplitude}</div>
+                    <div><strong>非零样本:</strong> ${stats.nonZeroPercent}%</div>
+                    <div><strong>前20个样本:</strong> ${stats.firstSamples.join(', ')}</div>
+                    <div style="margin-top:10px; padding:10px; background:#fff3cd; border-radius:5px;">
+                        ${stats.avgAmplitude < 100 ? 
+                            '⚠️ <strong>警告:</strong> 平均振幅过低,音频可能几乎静音' : 
+                            '✅ 音频振幅正常'}
+                    </div>
+                `;
+                
+                resultDiv.innerHTML = '<div class="success">✅ 分析完成,请查看下方统计信息</div>';
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 分析失败: ${error.message}</div>`;
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
